@@ -42,6 +42,7 @@ from homeassistant.exceptions import (
     InvalidEntityFormatError,
     InvalidStateError,
     ServiceNotFound,
+    ServiceValidationError,
     TemplateError,
     Unauthorized,
 )
@@ -401,22 +402,26 @@ class APIDomainServicesView(HomeAssistantView):
             raise HTTPBadRequest from ServiceNotFound(domain, service)
 
         if response_requested := "return_response" in request.query:
-            if (
-                hass.services.supports_response(domain, service)
-                is ha.SupportsResponse.NONE
-            ):
+            try:
+                supports = hass.services.supports_response(domain, service)
+            except (KeyError, ServiceNotFound):
+                supports = ha.SupportsResponse.NONE
+            if supports is ha.SupportsResponse.NONE:
                 return self.json_message(
                     "Service does not support responses. Remove return_response from request.",
                     HTTPStatus.BAD_REQUEST,
                 )
-        elif (
-            hass.services.supports_response(domain, service) is ha.SupportsResponse.ONLY
-        ):
-            return self.json_message(
-                "Service call requires responses but caller did not ask for responses. "
-                "Add ?return_response to query parameters.",
-                HTTPStatus.BAD_REQUEST,
-            )
+        else:
+            try:
+                supports = hass.services.supports_response(domain, service)
+            except (KeyError, ServiceNotFound):
+                supports = ha.SupportsResponse.NONE
+            if supports is ha.SupportsResponse.ONLY:
+                return self.json_message(
+                    "Service call requires responses but caller did not ask for responses. "
+                    "Add ?return_response to query parameters.",
+                    HTTPStatus.BAD_REQUEST,
+                )
 
         changed_states: list[json_fragment] = []
 
@@ -444,7 +449,7 @@ class APIDomainServicesView(HomeAssistantView):
                     return_response=response_requested,
                 )
             )
-        except (vol.Invalid, ServiceNotFound) as ex:
+        except (vol.Invalid, ServiceValidationError) as ex:
             raise HTTPBadRequest from ex
         finally:
             cancel_listen()

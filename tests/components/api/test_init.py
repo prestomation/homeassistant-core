@@ -901,6 +901,20 @@ async def test_api_call_service_not_found(
     assert resp.status == HTTPStatus.BAD_REQUEST
 
 
+async def test_api_call_service_not_found_no_500(
+    hass: HomeAssistant, mock_api_client: TestClient
+) -> None:
+    """Test that POST to a nonexistent script service returns 400, not 500.
+
+    UI-created scripts register their services under their unique_id (an opaque
+    hash), not the human-readable script name. Calling by friendly name should
+    return a clean 400 (ServiceNotFound) rather than an unhandled 500.
+    """
+    resp = await mock_api_client.post("/api/services/script/nonexistent_script_name")
+    # Must be 400 Bad Request — never a 500 Internal Server Error
+    assert resp.status == HTTPStatus.BAD_REQUEST
+
+
 async def test_api_call_service_bad_data(
     hass: HomeAssistant, mock_api_client: TestClient
 ) -> None:
