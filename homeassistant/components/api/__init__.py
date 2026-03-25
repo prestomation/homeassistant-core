@@ -398,7 +398,9 @@ class APIDomainServicesView(HomeAssistantView):
 
         context = self.context(request)
         if not hass.services.has_service(domain, service):
-            raise HTTPBadRequest from ServiceNotFound(domain, service)
+            return self.json_message(
+                f"Service {domain}/{service} not found.", HTTPStatus.NOT_FOUND
+            )
 
         if response_requested := "return_response" in request.query:
             if (
@@ -444,7 +446,11 @@ class APIDomainServicesView(HomeAssistantView):
                     return_response=response_requested,
                 )
             )
-        except (vol.Invalid, ServiceNotFound) as ex:
+        except ServiceNotFound:
+            return self.json_message(
+                f"Service {domain}/{service} not found.", HTTPStatus.NOT_FOUND
+            )
+        except vol.Invalid as ex:
             raise HTTPBadRequest from ex
         finally:
             cancel_listen()

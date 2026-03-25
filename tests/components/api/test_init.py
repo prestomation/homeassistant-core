@@ -896,9 +896,24 @@ async def test_rendering_template_admin(
 async def test_api_call_service_not_found(
     hass: HomeAssistant, mock_api_client: TestClient
 ) -> None:
-    """Test if the API fails 400 if unknown service."""
+    """Test if the API returns 404 if unknown service."""
     resp = await mock_api_client.post("/api/services/test_domain/test_service")
-    assert resp.status == HTTPStatus.BAD_REQUEST
+    assert resp.status == HTTPStatus.NOT_FOUND
+
+
+async def test_api_call_service_not_found_nonexistent_script(
+    hass: HomeAssistant, mock_api_client: TestClient
+) -> None:
+    """Test that POST to a nonexistent script service returns 404, not 400.
+
+    UI-created scripts register under their unique_id, not their friendly name,
+    so calling by friendly name should return 404 (resource not found), not 400
+    (bad request).
+    """
+    resp = await mock_api_client.post("/api/services/script/nonexistent_script_name")
+    assert resp.status == HTTPStatus.NOT_FOUND
+    result = await resp.json()
+    assert "message" in result
 
 
 async def test_api_call_service_bad_data(
